@@ -1,0 +1,34 @@
+# Environment variables file
+.env
+
+# Node.js modules
+node_modules/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows system files
+Thumbs.db
+
+# Build output directory
+dist/
+
+# IDE files (JetBrains, etc.)
+.idea/
+
+# Visual Studio Code configuration
+.vscode/
+
+# Logs
+*.log
+
+# npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.swp
