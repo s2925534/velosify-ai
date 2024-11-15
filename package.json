@@ -21,5 +21,16 @@
   },
   "devDependencies": {
     "jest": "^27.0.0"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/s2925534/velosify-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/s2925534/velosify-ai/issues"
+  },
+  "homepage": "https://github.com/s2925534/velosify-ai#readme"
 }
