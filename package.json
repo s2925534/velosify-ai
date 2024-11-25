@@ -1,6 +1,6 @@
 {
   "name": "velosify-ai",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An npm library for integrating ChatGPT and other AI services.",
   "main": "src/index.js",
   "scripts": {
@@ -16,8 +16,12 @@
   "author": "veloso <pedro@veloso.dev>",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.21.1",
-    "dotenv": "^16.4.5"
+    "axios": "^1.7.7",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.5",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
+    "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
     "jest": "^27.0.0"
