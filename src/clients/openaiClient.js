@@ -10,17 +10,24 @@ class OpenAIClient {
     constructor(apiKey) {
         this.apiKey = apiKey;
         this.baseURL = 'https://api.openai.com/v1/chat/completions';
+        // Define models and their maximum token limits
+        this.models = {
+            'gpt-3.5-turbo': 4096,
+            'gpt-4': 8192,
+            'gpt-4-32k': 32768,
+            'gpt-4-turbo': 128000, // Example model with a larger context window
+            // Add more models as needed
+        };
     }
 
     /**
      * Send a message to the OpenAI API.
      * @param {string} message - The message to send to OpenAI.
-     * @param {string} model - The model to use (default: gpt-3.5-turbo).
      * @param {Object} options - Options for the API call.
      * @param {string|null} filePath - Optional path to a file to include in the request.
      * @returns {Promise<string>} - The content of the response.
      */
-    async sendMessage(message, model = 'gpt-3.5-turbo', options = {}, filePath = null) {
+    async sendMessage(message, options = {}, filePath = null) {
         try {
             let additionalContent = '';
             if (filePath) {
@@ -30,8 +37,16 @@ class OpenAIClient {
 
             const fullMessage = message + additionalContent;
 
-            // Calculate the max tokens for processing if not explicitly set
-            const tokenCount = options.max_tokens || await this.approximateTokenCount(fullMessage);
+            // Calculate the approximate token count of the full message
+            const inputTokenCount = await this.approximateTokenCount(fullMessage);
+            const desiredOutputTokens = options.max_tokens || 1000; // Default to 1000 if not specified
+            const totalTokenCount = inputTokenCount + desiredOutputTokens;
+
+            // Select an appropriate model based on the total token count
+            const selectedModel = this.selectModel(totalTokenCount);
+            if (!selectedModel) {
+                throw new Error('Input exceeds the maximum token limit of all available models.');
+            }
 
             // Set default values for optional parameters
             const {
@@ -50,9 +65,9 @@ class OpenAIClient {
             const response = await axios.post(
                 this.baseURL,
                 {
-                    model,
+                    model: selectedModel,
                     messages: [{ role: 'user', content: fullMessage }],
-                    max_tokens: tokenCount,
+                    max_tokens: desiredOutputTokens,
                     temperature,
                     top_p,
                     n,
@@ -74,8 +89,33 @@ class OpenAIClient {
             // Return the response content
             return response.data.choices[0].message.content;
         } catch (error) {
-            throw new Error(`Failed to get response from ChatGPT: ${error.message}`);
+            if (error.response) {
+                console.error('Error response:', error.response.data);
+                throw new Error(`Failed to get response from ChatGPT: ${error.response.data.error.message}`);
+            } else {
+                throw new Error(`Failed to get response from ChatGPT: ${error.message}`);
+            }
         }
+    }
+
+    /**
+     * Select an appropriate model based on the total token count.
+     * @param {number} totalTokenCount - The total number of tokens (input + desired output).
+     * @returns {string|null} - The selected model name or null if none can accommodate the token count.
+     */
+    selectModel(totalTokenCount) {
+        // Sort models by their token limits in ascending order
+        const sortedModels = Object.entries(this.models).sort((a, b) => a[1] - b[1]);
+
+        // Find the first model that can accommodate the total token count
+        for (const [model, maxTokens] of sortedModels) {
+            if (totalTokenCount <= maxTokens) {
+                return model;
+            }
+        }
+
+        // If no model can accommodate the token count, return null
+        return null;
     }
 
     /**
