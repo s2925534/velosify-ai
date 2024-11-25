@@ -1,4 +1,10 @@
 const axios = require('axios');
+const fs = require('fs/promises');
+const path = require('path');
+const { parse } = require('csv-parse/sync');
+const mammoth = require('mammoth'); // For DOCX
+const pdfParse = require('pdf-parse'); // For PDFs
+const tesseract = require('tesseract.js'); // For OCR
 
 class OpenAIClient {
     constructor(apiKey) {
@@ -10,25 +16,34 @@ class OpenAIClient {
      * Send a message to the OpenAI API.
      * @param {string} message - The message to send to OpenAI.
      * @param {string} model - The model to use (default: gpt-3.5-turbo).
-     * @param options
+     * @param {Object} options - Options for the API call.
+     * @param {string|null} filePath - Optional path to a file to include in the request.
      * @returns {Promise<string>} - The content of the response.
      */
-    async sendMessage(message, model = 'gpt-3.5-turbo', options = {}) {
+    async sendMessage(message, model = 'gpt-3.5-turbo', options = {}, filePath = null) {
         try {
+            let additionalContent = '';
+            if (filePath) {
+                const fileContent = await this.processFile(filePath);
+                additionalContent = `\n\nPlease consider the following additional content from the file "${path.basename(filePath)}":\n${fileContent}`;
+            }
+
+            const fullMessage = message + additionalContent;
+
             // Calculate the max tokens for processing if not explicitly set
-            const tokenCount = options.max_tokens || await this.approximateTokenCount(message);
+            const tokenCount = options.max_tokens || await this.approximateTokenCount(fullMessage);
 
             // Set default values for optional parameters
             const {
-                temperature = 0.7,       // Default sampling temperature
-                top_p = 1,               // Default nucleus sampling
-                n = 1,                   // Default number of completions
-                stream = false,          // Default streaming disabled
-                stop = null,             // Default no stop sequences
-                presence_penalty = 0,    // Default no presence penalty
-                frequency_penalty = 0,   // Default no frequency penalty
-                logit_bias = null,       // Default no token bias
-                user = null,             // Default no user ID
+                temperature = 0.7,
+                top_p = 1,
+                n = 1,
+                stream = false,
+                stop = null,
+                presence_penalty = 0,
+                frequency_penalty = 0,
+                logit_bias = null,
+                user = null,
             } = options;
 
             // Make the API request
@@ -36,7 +51,7 @@ class OpenAIClient {
                 this.baseURL,
                 {
                     model,
-                    messages: [{ role: 'user', content: message }],
+                    messages: [{ role: 'user', content: fullMessage }],
                     max_tokens: tokenCount,
                     temperature,
                     top_p,
@@ -63,11 +78,42 @@ class OpenAIClient {
         }
     }
 
+    /**
+     * Process a file and return its textual content.
+     * @param {string} filePath - Path to the file.
+     * @returns {Promise<string>} - The content extracted from the file.
+     */
+    async processFile(filePath) {
+        const ext = path.extname(filePath).toLowerCase();
+        const buffer = await fs.readFile(filePath);
 
+        if (['.txt', '.csv'].includes(ext)) {
+            return buffer.toString(); // Read plain text or CSV as text
+        } else if (ext === '.csv') {
+            const records = parse(buffer.toString(), { columns: true });
+            return JSON.stringify(records, null, 2); // Convert CSV to JSON-like string
+        } else if (ext === '.docx') {
+            const result = await mammoth.extractRawText({ buffer });
+            return result.value; // Extract text from DOCX
+        } else if (ext === '.pdf') {
+            const result = await pdfParse(buffer);
+            return result.text; // Extract text from PDF
+        } else if (['.png', '.jpg', '.jpeg', '.bmp'].includes(ext)) {
+            const result = await tesseract.recognize(buffer, 'eng');
+            return result.data.text; // Extract text via OCR
+        } else {
+            throw new Error(`Unsupported file type: ${ext}`);
+        }
+    }
+
+    /**
+     * Approximates the token count of a message.
+     * @param {string} text - The message to approximate token count for.
+     * @returns {Promise<number>} - The approximated token count.
+     */
     async approximateTokenCount(text) {
-        // Split the text by spaces, punctuation, and special characters
         const tokens = text.match(/\S+/g); // Split on non-whitespace sequences
-        return tokens ? tokens.length : 0; // Return the count of tokens
+        return tokens ? tokens.length : 0;
     }
 }
 
