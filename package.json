@@ -1,6 +1,6 @@
 {
   "name": "velosify-ai",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "An npm library for integrating ChatGPT and other AI services.",
   "main": "src/index.js",
   "scripts": {
